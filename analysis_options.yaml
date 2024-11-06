@@ -1,0 +1,18 @@
+include: package:pedantic_mono/analysis_options.yaml
+
+analyzer:
+  exclude:
+    - "**/*.g.dart"
+    - "**/*.freezed.dart"
+  plugins:
+    - custom_lint
+linter:
+  rules:
+    prefer_relative_imports: true
+    always_put_control_body_on_new_line: false
+    sort_pub_dependencies: false
+    avoid_classes_with_only_static_members: false
+    use_setters_to_change_properties: false
+    avoid_print: false
+    one_member_abstracts: false
+    flutter_style_todos: false
