@@ -2,12 +2,13 @@ import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 
 class CameraPreviewWidget extends StatefulWidget {
-  const CameraPreviewWidget(
-      {super.key,
-      required this.controller,
-      required this.minAvailableZoom,
-      required this.maxAvailableZoom,
-      this.borderRadius = 60});
+  const CameraPreviewWidget({
+    super.key,
+    required this.controller,
+    required this.minAvailableZoom,
+    required this.maxAvailableZoom,
+    this.borderRadius = 60,
+  });
 
   final CameraController controller;
   final double minAvailableZoom;
@@ -20,8 +21,8 @@ class CameraPreviewWidget extends StatefulWidget {
 }
 
 class _CameraPreviewWidgetState extends State<CameraPreviewWidget> {
-  double _currentScale = 1.0;
-  double _baseScale = 1.0;
+  double _currentScale = 1;
+  double _baseScale = 1;
 
   // Counting pointers (number of user fingers on screen)
   int _pointers = 0;

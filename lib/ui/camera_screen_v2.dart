@@ -1,26 +1,30 @@
-import 'package:flutter/material.dart';
 import 'dart:io';
 
 import 'package:camera/camera.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:image_gallery_saver/image_gallery_saver.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:screenshot/screenshot.dart';
-import 'package:silent_camera/ui/widget/camera_preview.dart';
-import 'package:silent_camera/ui/widget/shutter_button.dart';
 import 'package:video_player/video_player.dart';
 
+import '../provider/camera_mode_provider.dart';
+import '../provider/camera_provider.dart';
+import '../provider/flash_mode_provider.dart';
 import 'widget/bottom_navigation_bar.dart';
+import 'widget/camera_preview.dart';
+import 'widget/shutter_button.dart';
 
-class CameraScreen extends StatefulWidget {
-  final List<CameraDescription> cameras;
-
-  const CameraScreen({super.key, required this.cameras});
+class CameraScreenV2 extends StatefulHookConsumerWidget {
+  const CameraScreenV2({super.key});
 
   @override
-  State<CameraScreen> createState() => _CameraScreenState();
+  ConsumerState<ConsumerStatefulWidget> createState() => _CameraScreenV2State();
 }
 
-class _CameraScreenState extends State<CameraScreen>
+class _CameraScreenV2State extends ConsumerState<CameraScreenV2>
     with WidgetsBindingObserver, TickerProviderStateMixin {
   CameraController? controller;
   XFile? imageFile;
@@ -32,13 +36,14 @@ class _CameraScreenState extends State<CameraScreen>
   late Animation<double> _flashModeControlRowAnimation;
   late AnimationController _exposureModeControlRowAnimationController;
   late AnimationController _focusModeControlRowAnimationController;
-  double _minAvailableZoom = 1.0;
-  double _maxAvailableZoom = 1.0;
+  double _minAvailableZoom = 1;
+  double _maxAvailableZoom = 1;
 
-  ScreenshotController screenshotController = ScreenshotController();
+  final screenshotController = ScreenshotController();
+  final imagePicker = ImagePicker();
 
-  Future<void> storeImage() async {
-    screenshotController
+  Future<void> saveImage() async {
+    await screenshotController
         .captureFromWidget(
       CameraPreviewWidget(
         controller: controller!,
@@ -54,48 +59,14 @@ class _CameraScreenState extends State<CameraScreen>
     });
   }
 
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addObserver(this);
-
-    // バックカメラを初期設定として選択
-    for (var camera in widget.cameras) {
-      if (camera.lensDirection == CameraLensDirection.back) {
-        _initializeCameraController(camera);
-        break;
-      }
-    }
-
-    _flashModeControlRowAnimationController = AnimationController(
-      duration: const Duration(milliseconds: 300),
-      vsync: this,
-    );
-    _flashModeControlRowAnimation = CurvedAnimation(
-      parent: _flashModeControlRowAnimationController,
-      curve: Curves.easeInCubic,
-    );
-    _exposureModeControlRowAnimationController = AnimationController(
-      duration: const Duration(milliseconds: 300),
-      vsync: this,
-    );
-    _focusModeControlRowAnimationController = AnimationController(
-      duration: const Duration(milliseconds: 300),
-      vsync: this,
-    );
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    _flashModeControlRowAnimationController.dispose();
-    _exposureModeControlRowAnimationController.dispose();
-    super.dispose();
+  // ギャラリーから写真を取得するメソッド
+  Future<void> activeImageGallery() async {
+    await imagePicker.pickImage(source: ImageSource.gallery);
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    final CameraController? cameraController = controller;
+    final cameraController = controller;
 
     if (cameraController == null || !cameraController.value.isInitialized) {
       return;
@@ -110,11 +81,68 @@ class _CameraScreenState extends State<CameraScreen>
 
   @override
   Widget build(BuildContext context) {
+    final cameras = ref.watch(camerasProvider);
+    final cameraMode = ref.watch(cameraModeProvider);
+    final flashMode = ref.watch(flashModeProvider);
+
+    useEffect(
+      () {
+        if (cameras.value == null) {
+          return null;
+        }
+
+        // バックカメラを初期設定として選択
+        final camera = cameras.value!.firstWhere((element) {
+          return element.lensDirection == CameraLensDirection.back;
+        });
+        _initializeCameraController(camera);
+        return null;
+      },
+      [cameras],
+    );
+
+    useEffect(
+      () {
+        WidgetsBinding.instance.addObserver(this);
+
+        _flashModeControlRowAnimationController = AnimationController(
+          duration: const Duration(milliseconds: 300),
+          vsync: this,
+        );
+        _flashModeControlRowAnimation = CurvedAnimation(
+          parent: _flashModeControlRowAnimationController,
+          curve: Curves.easeInCubic,
+        );
+        _exposureModeControlRowAnimationController = AnimationController(
+          duration: const Duration(milliseconds: 300),
+          vsync: this,
+        );
+        _focusModeControlRowAnimationController = AnimationController(
+          duration: const Duration(milliseconds: 300),
+          vsync: this,
+        );
+
+        return () {
+          WidgetsBinding.instance.removeObserver(this);
+          _flashModeControlRowAnimationController.dispose();
+          _exposureModeControlRowAnimationController.dispose();
+          _focusModeControlRowAnimationController.dispose();
+        };
+      },
+      [],
+    );
+
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
-        leading: IconButton(onPressed: () {}, icon: const Icon(Icons.flash_on)),
+        leading: IconButton(
+          icon: const Icon(Icons.flash_on),
+          color: flashMode ? Colors.grey : Colors.orange,
+          onPressed: flashMode
+              ? () => onSetFlashModeButtonPressed(FlashMode.always)
+              : () => onSetFlashModeButtonPressed(FlashMode.off),
+        ),
         actions: [
           IconButton(onPressed: () {}, icon: const Icon(Icons.abc)),
         ],
@@ -125,40 +153,48 @@ class _CameraScreenState extends State<CameraScreen>
         child: Column(
           children: [
             Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               child: Screenshot(
                 controller: screenshotController,
                 child: _cameraPreviewWidget(),
               ),
             ),
-            const SizedBox(height: 12.0),
+            const SizedBox(height: 12),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                IconButton(onPressed: () {}, icon: Icon(Icons.image)),
-                ShutterButton(onTap: onPausePreviewButtonPressed),
                 IconButton(
-                    onPressed: () {
-                      final description = controller!.description;
-                      final cameraDescription =
-                          widget.cameras.firstWhere((element) {
-                        final direction = description.lensDirection ==
-                                CameraLensDirection.front
-                            ? CameraLensDirection.back
-                            : CameraLensDirection.front;
-                        return element.lensDirection == direction;
-                      });
+                  onPressed: activeImageGallery,
+                  icon: const Icon(Icons.image),
+                ),
+                ShutterButton(
+                  onTap: cameraMode
+                      ? onPausePreviewButtonPressed
+                      : () {
+                          print("video");
+                        },
+                ),
+                IconButton(
+                  onPressed: () {
+                    final description = controller!.description;
+                    final cameraDescription =
+                        cameras.value!.firstWhere((element) {
+                      final direction =
+                          description.lensDirection == CameraLensDirection.front
+                              ? CameraLensDirection.back
+                              : CameraLensDirection.front;
+                      return element.lensDirection == direction;
+                    });
 
-                      onNewCameraSelected(cameraDescription);
-                    },
-                    icon: const Icon(
-                      Icons.replay,
-                      size: 20,
-                    )),
+                    onNewCameraSelected(cameraDescription);
+                  },
+                  icon: const Icon(
+                    Icons.replay,
+                    size: 20,
+                  ),
+                ),
               ],
             ),
-
             // _captureControlRowWidget(),
             // _modeControlRowWidget(),
           ],
@@ -168,7 +204,7 @@ class _CameraScreenState extends State<CameraScreen>
   }
 
   Widget _cameraPreviewWidget() {
-    final CameraController? cameraController = controller;
+    final cameraController = controller;
 
     if (cameraController == null || !cameraController.value.isInitialized) {
       return const CircularProgressIndicator(color: Colors.white);
@@ -249,7 +285,7 @@ class _CameraScreenState extends State<CameraScreen>
   }
 
   Widget _captureControlRowWidget() {
-    final CameraController? cameraController = controller;
+    final cameraController = controller;
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -311,9 +347,9 @@ class _CameraScreenState extends State<CameraScreen>
       return;
     }
 
-    final CameraController cameraController = controller!;
+    final cameraController = controller!;
 
-    final Offset offset = Offset(
+    final offset = Offset(
       details.localPosition.dx / constraints.maxWidth,
       details.localPosition.dy / constraints.maxHeight,
     );
@@ -322,7 +358,6 @@ class _CameraScreenState extends State<CameraScreen>
   }
 
   Future<void> onNewCameraSelected(CameraDescription cameraDescription) async {
-    print("cameraDescription: $cameraDescription");
     if (controller != null) {
       return controller!.setDescription(cameraDescription);
     } else {
@@ -332,7 +367,7 @@ class _CameraScreenState extends State<CameraScreen>
 
   Future<void> _initializeCameraController(
       CameraDescription cameraDescription) async {
-    final CameraController cameraController = CameraController(
+    final cameraController = CameraController(
       cameraDescription,
       kIsWeb ? ResolutionPreset.max : ResolutionPreset.medium,
       enableAudio: enableAudio,
@@ -446,7 +481,7 @@ class _CameraScreenState extends State<CameraScreen>
   Future<void> onCaptureOrientationLockButtonPressed() async {
     try {
       if (controller != null) {
-        final CameraController cameraController = controller!;
+        final cameraController = controller!;
         if (cameraController.value.isCaptureOrientationLocked) {
           await cameraController.unlockCaptureOrientation();
           showInSnackBar('Capture orientation unlocked');
@@ -461,12 +496,12 @@ class _CameraScreenState extends State<CameraScreen>
     }
   }
 
-  void onSetFlashModeButtonPressed(FlashMode mode) {
-    setFlashMode(mode).then((_) {
-      if (mounted) {
-        setState(() {});
-      }
-      showInSnackBar('Flash mode set to ${mode.toString().split('.').last}');
+  Future<void> onSetFlashModeButtonPressed(FlashMode mode) async {
+    print("mode: $mode");
+
+    await setFlashMode(mode).then((_) {
+      final flashModeState = ref.read(flashModeProvider.notifier);
+      flashModeState.state = !flashModeState.state;
     });
   }
 
@@ -517,7 +552,7 @@ class _CameraScreenState extends State<CameraScreen>
 
     if (controller!.value.isPreviewPaused) {
       await controller!.resumePreview();
-      await storeImage();
+      await saveImage();
     } else {
       await controller!.pausePreview();
     }
@@ -546,7 +581,7 @@ class _CameraScreenState extends State<CameraScreen>
   }
 
   Future<void> startVideoRecording() async {
-    final CameraController? cameraController = controller;
+    final cameraController = controller;
 
     if (cameraController == null || !cameraController.value.isInitialized) {
       showInSnackBar('Error: select a camera first.');
@@ -567,7 +602,7 @@ class _CameraScreenState extends State<CameraScreen>
   }
 
   Future<XFile?> stopVideoRecording() async {
-    final CameraController? cameraController = controller;
+    final cameraController = controller;
 
     if (cameraController == null || !cameraController.value.isRecordingVideo) {
       return null;
@@ -582,7 +617,7 @@ class _CameraScreenState extends State<CameraScreen>
   }
 
   Future<void> pauseVideoRecording() async {
-    final CameraController? cameraController = controller;
+    final cameraController = controller;
 
     if (cameraController == null || !cameraController.value.isRecordingVideo) {
       return;
@@ -597,7 +632,7 @@ class _CameraScreenState extends State<CameraScreen>
   }
 
   Future<void> resumeVideoRecording() async {
-    final CameraController? cameraController = controller;
+    final cameraController = controller;
 
     if (cameraController == null || !cameraController.value.isRecordingVideo) {
       return;
@@ -655,7 +690,7 @@ class _CameraScreenState extends State<CameraScreen>
       return;
     }
 
-    final VideoPlayerController vController = kIsWeb
+    final vController = kIsWeb
         ? VideoPlayerController.networkUrl(Uri.parse(videoFile!.path))
         : VideoPlayerController.file(File(videoFile!.path));
 
