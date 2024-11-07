@@ -43,6 +43,10 @@ class _CameraScreenV2State extends ConsumerState<CameraScreenV2>
   final imagePicker = ImagePicker();
 
   Future<void> saveImage() async {
+    if (controller == null || !controller!.value.isInitialized) {
+      return;
+    }
+
     await screenshotController
         .captureFromWidget(
       CameraPreviewWidget(
@@ -497,8 +501,6 @@ class _CameraScreenV2State extends ConsumerState<CameraScreenV2>
   }
 
   Future<void> onSetFlashModeButtonPressed(FlashMode mode) async {
-    print("mode: $mode");
-
     await setFlashMode(mode).then((_) {
       final flashModeState = ref.read(flashModeProvider.notifier);
       flashModeState.state = !flashModeState.state;
