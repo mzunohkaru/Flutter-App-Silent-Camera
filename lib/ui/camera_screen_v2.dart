@@ -552,16 +552,13 @@ class _CameraScreenV2State extends ConsumerState<CameraScreenV2>
       return;
     }
 
-    if (controller!.value.isPreviewPaused) {
-      await controller!.resumePreview();
-      await saveImage();
-    } else {
-      await controller!.pausePreview();
-    }
-
-    if (mounted) {
-      setState(() {});
-    }
+    await controller!.pausePreview();
+    await saveImage().then((_) {
+      controller!.resumePreview();
+      if (mounted) {
+        setState(() {});
+      }
+    });
   }
 
   void onPauseButtonPressed() {
