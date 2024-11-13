@@ -24,7 +24,6 @@ class _CameraPreviewWidgetState extends State<CameraPreviewWidget> {
   double _currentScale = 1;
   double _baseScale = 1;
 
-  // Counting pointers (number of user fingers on screen)
   int _pointers = 0;
 
   @override
@@ -37,15 +36,16 @@ class _CameraPreviewWidgetState extends State<CameraPreviewWidget> {
         child: CameraPreview(
           widget.controller,
           child: LayoutBuilder(
-              builder: (BuildContext context, BoxConstraints constraints) {
-            return GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onScaleStart: _handleScaleStart,
-              onScaleUpdate: _handleScaleUpdate,
-              onTapDown: (TapDownDetails details) =>
-                  onViewFinderTap(details, constraints),
-            );
-          }),
+            builder: (BuildContext context, BoxConstraints constraints) {
+              return GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onScaleStart: _handleScaleStart,
+                onScaleUpdate: _handleScaleUpdate,
+                onTapDown: (TapDownDetails details) =>
+                    onViewFinderTap(details, constraints),
+              );
+            },
+          ),
         ),
       ),
     );
