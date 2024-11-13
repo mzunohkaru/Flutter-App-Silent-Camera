@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 class ShutterButton extends StatefulWidget {
   const ShutterButton({super.key, required this.onTap});
 
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   @override
   State<ShutterButton> createState() => _ShutterButtonState();

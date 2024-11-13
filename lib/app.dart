@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'ui/camera_screen_v2.dart';
+import 'ui/camera_screen_v3.dart';
 
 class App extends StatefulWidget {
   const App({super.key});
@@ -18,7 +19,7 @@ class _AppState extends State<App> {
         useMaterial3: true,
       ),
       themeMode: ThemeMode.dark,
-      home: const CameraScreenV2(),
+      home: const CameraScreenV3(),
     );
   }
 }
