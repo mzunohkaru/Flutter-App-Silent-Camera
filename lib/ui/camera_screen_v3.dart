@@ -8,6 +8,7 @@ import 'package:screenshot/screenshot.dart';
 
 import '../provider/camera_mode_provider.dart';
 import 'widget/camera_preview.dart';
+import 'widget/seekbar.dart';
 import 'widget/shutter_button.dart';
 import 'widget/switch_camera_button.dart';
 import 'widget/wating.dart';
@@ -31,6 +32,9 @@ class CameraScreenV3 extends HookConsumerWidget {
     final minAvailableZoom = useState<double>(1.0);
     final maxAvailableZoom = useState<double>(2.0);
     final isChangingCamera = useState<bool>(false);
+    final progress = useState<double>(0.0);
+
+    print(progress.value);
 
     final initializeCameraController = useCallback(
       ({
@@ -98,15 +102,20 @@ class CameraScreenV3 extends HookConsumerWidget {
     final takePicture = useCallback(
       () async {
         try {
+          if (isTakingPicture.value) return;
+
           final cameraController = controller.value;
+
           if (cameraController == null ||
               !cameraController.value.isInitialized) {
             return;
           }
 
           isTakingPicture.value = true;
+          progress.value = 20;
           await cameraController.pausePreview();
 
+          progress.value = 90;
           final capturedImage = await screenshotController.captureFromWidget(
             CameraPreviewWidget(
               controller: cameraController,
@@ -116,15 +125,24 @@ class CameraScreenV3 extends HookConsumerWidget {
             ),
           );
 
+          progress.value = 98;
           await ImageGallerySaver.saveImage(capturedImage);
           await cameraController.resumePreview();
+          progress.value = 100;
         } catch (e) {
           debugPrint('写真撮影エラー: $e');
         } finally {
           isTakingPicture.value = false;
+          progress.value = 0;
         }
       },
-      [controller, isTakingPicture, minAvailableZoom, maxAvailableZoom],
+      [
+        controller,
+        isTakingPicture,
+        minAvailableZoom,
+        maxAvailableZoom,
+        progress
+      ],
     );
 
     useEffect(
@@ -166,28 +184,28 @@ class CameraScreenV3 extends HookConsumerWidget {
                 maxAvailableZoom: maxAvailableZoom.value,
               ),
               isTakingPicture.value
-                  ? const Center(child: CircularProgressIndicator())
+                  ? SeekBar(progress: progress.value)
                   : const SizedBox.shrink(),
-              Align(
-                alignment: Alignment.topCenter,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.flash_on),
-                      onPressed: () {},
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.abc),
-                      onPressed: () {},
-                    ),
-                  ],
-                ),
-              ),
+              // Align(
+              //   alignment: Alignment.topCenter,
+              //   child: Row(
+              //     mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              //     children: [
+              //       IconButton(
+              //         icon: const Icon(Icons.flash_on),
+              //         onPressed: () {},
+              //       ),
+              //       IconButton(
+              //         icon: const Icon(Icons.abc),
+              //         onPressed: () {},
+              //       ),
+              //     ],
+              //   ),
+              // ),
               Align(
                 alignment: Alignment.bottomCenter,
                 child: Padding(
-                  padding: const EdgeInsets.only(bottom: 16),
+                  padding: const EdgeInsets.only(bottom: 32),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
