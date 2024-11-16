@@ -7,7 +7,9 @@ import 'package:image_picker/image_picker.dart';
 import 'package:screenshot/screenshot.dart';
 
 import '../provider/camera_mode_provider.dart';
+import 'widget/bottom_navigation_bar.dart';
 import 'widget/camera_preview.dart';
+import 'widget/seekbar.dart';
 import 'widget/shutter_button.dart';
 import 'widget/switch_camera_button.dart';
 import 'widget/wating.dart';
@@ -31,6 +33,7 @@ class CameraScreenV3 extends HookConsumerWidget {
     final minAvailableZoom = useState<double>(1.0);
     final maxAvailableZoom = useState<double>(2.0);
     final isChangingCamera = useState<bool>(false);
+    final progress = useState<double>(0.0);
 
     final initializeCameraController = useCallback(
       ({
@@ -98,15 +101,18 @@ class CameraScreenV3 extends HookConsumerWidget {
     final takePicture = useCallback(
       () async {
         try {
+          if (isTakingPicture.value) return;
+
           final cameraController = controller.value;
+
           if (cameraController == null ||
               !cameraController.value.isInitialized) {
             return;
           }
-
           isTakingPicture.value = true;
+          progress.value = 20;
           await cameraController.pausePreview();
-
+          progress.value = 90;
           final capturedImage = await screenshotController.captureFromWidget(
             CameraPreviewWidget(
               controller: cameraController,
@@ -115,16 +121,46 @@ class CameraScreenV3 extends HookConsumerWidget {
               borderRadius: 0,
             ),
           );
-
+          progress.value = 98;
           await ImageGallerySaver.saveImage(capturedImage);
           await cameraController.resumePreview();
+          progress.value = 100;
         } catch (e) {
           debugPrint('写真撮影エラー: $e');
         } finally {
           isTakingPicture.value = false;
+          progress.value = 0;
         }
       },
-      [controller, isTakingPicture, minAvailableZoom, maxAvailableZoom],
+      [
+        controller,
+        isTakingPicture,
+        minAvailableZoom,
+        maxAvailableZoom,
+        progress,
+      ],
+    );
+
+    final videoRecorder = useCallback(
+      () async {
+        await controller.value!.startVideoRecording().then((_) {
+          ref.read(videoStatusProvider.notifier).state = true;
+        });
+      },
+      [],
+    );
+
+    final videoStop = useCallback(
+      () async {
+        await controller.value!.stopVideoRecording().then((XFile? file) async {
+          if (file != null) {
+            print('Video recorded to ${file.path}');
+            await ImageGallerySaver.saveFile(file.path);
+            ref.read(videoStatusProvider.notifier).state = false;
+          }
+        });
+      },
+      [],
     );
 
     useEffect(
@@ -153,7 +189,7 @@ class CameraScreenV3 extends HookConsumerWidget {
 
     return Scaffold(
       backgroundColor: Colors.black,
-      // bottomNavigationBar: const BottomNavigationBarWidget(),
+      bottomNavigationBar: const BottomNavigationBarWidget(),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 4),
@@ -166,28 +202,28 @@ class CameraScreenV3 extends HookConsumerWidget {
                 maxAvailableZoom: maxAvailableZoom.value,
               ),
               isTakingPicture.value
-                  ? const Center(child: CircularProgressIndicator())
+                  ? SeekBar(progress: progress.value)
                   : const SizedBox.shrink(),
-              Align(
-                alignment: Alignment.topCenter,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.flash_on),
-                      onPressed: () {},
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.abc),
-                      onPressed: () {},
-                    ),
-                  ],
-                ),
-              ),
+              // Align(
+              //   alignment: Alignment.topCenter,
+              //   child: Row(
+              //     mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              //     children: [
+              //       IconButton(
+              //         icon: const Icon(Icons.flash_on),
+              //         onPressed: () {},
+              //       ),
+              //       IconButton(
+              //         icon: const Icon(Icons.abc),
+              //         onPressed: () {},
+              //       ),
+              //     ],
+              //   ),
+              // ),
               Align(
                 alignment: Alignment.bottomCenter,
                 child: Padding(
-                  padding: const EdgeInsets.only(bottom: 16),
+                  padding: const EdgeInsets.only(bottom: 32),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
@@ -204,10 +240,27 @@ class CameraScreenV3 extends HookConsumerWidget {
                       ShutterButton(
                         onTap: isCameraMode
                             ? takePicture
-                            : () {
-                                ref.read(videoStatusProvider.notifier).state =
-                                    !isVideoStatus;
-                                print('Video');
+                            : () async {
+                                print(isVideoStatus);
+                                if (controller.value == null) {
+                                  return;
+                                }
+
+                                try {
+                                  if (isVideoStatus &&
+                                      controller
+                                          .value!.value.isRecordingVideo) {
+                                    print('videoStop');
+                                    await videoStop();
+                                  } else {
+                                    print('videoRecorder');
+                                    await videoRecorder();
+                                  }
+                                } on CameraException catch (e) {
+                                  print(e);
+                                  ref.read(videoStatusProvider.notifier).state =
+                                      false;
+                                }
                               },
                         isPerform: cameraLoaded.value && !isTakingPicture.value,
                         isVideoStatus: isVideoStatus,
