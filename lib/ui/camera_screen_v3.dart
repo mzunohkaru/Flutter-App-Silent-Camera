@@ -6,7 +6,8 @@ import 'package:image_gallery_saver/image_gallery_saver.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:screenshot/screenshot.dart';
 
-import '../provider/camera_mode_provider.dart';
+import '../provider/camera_mode/camera_mode.dart';
+import '../provider/video_mode/video_mode.dart';
 import 'widget/bottom_navigation_bar.dart';
 import 'widget/camera_preview.dart';
 import 'widget/seekbar.dart';
@@ -21,8 +22,8 @@ class CameraScreenV3 extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final isCameraMode = ref.watch(cameraModeProvider);
-    final isVideoStatus = ref.watch(videoStatusProvider);
+    final isCameraMode = ref.watch(cameraModeNotifierProvider);
+    final isVideoStatus = ref.watch(videoModeNotifierProvider);
 
     final screenshotController = useMemoized(ScreenshotController.new);
     final imagePicker = useMemoized(ImagePicker.new);
@@ -45,7 +46,6 @@ class CameraScreenV3 extends HookConsumerWidget {
           final cameraController = CameraController(
             camera,
             ResolutionPreset.ultraHigh,
-            enableAudio: false,
           );
 
           controller.value = cameraController;
@@ -86,16 +86,20 @@ class CameraScreenV3 extends HookConsumerWidget {
           );
         }
       },
-      [],
+      [controller.value],
     );
 
     final activeImagePicker = useCallback(
       () async {
-        await imagePicker.pickImage(
-          source: ImageSource.gallery,
-        );
+        if (isCameraMode) {
+          await imagePicker.pickImage(
+            source: ImageSource.gallery,
+          );
+        } else {
+          await imagePicker.pickVideo(source: ImageSource.gallery);
+        }
       },
-      [],
+      [isCameraMode],
     );
 
     final takePicture = useCallback(
@@ -112,7 +116,7 @@ class CameraScreenV3 extends HookConsumerWidget {
           isTakingPicture.value = true;
           progress.value = 20;
           await cameraController.pausePreview();
-          progress.value = 90;
+          progress.value = 95;
           final capturedImage = await screenshotController.captureFromWidget(
             CameraPreviewWidget(
               controller: cameraController,
@@ -144,7 +148,7 @@ class CameraScreenV3 extends HookConsumerWidget {
     final videoRecorder = useCallback(
       () async {
         await controller.value!.startVideoRecording().then((_) {
-          ref.read(videoStatusProvider.notifier).state = true;
+          ref.read(videoModeNotifierProvider.notifier).play();
         });
       },
       [],
@@ -156,7 +160,7 @@ class CameraScreenV3 extends HookConsumerWidget {
           if (file != null) {
             print('Video recorded to ${file.path}');
             await ImageGallerySaver.saveFile(file.path);
-            ref.read(videoStatusProvider.notifier).state = false;
+            ref.read(videoModeNotifierProvider.notifier).stop();
           }
         });
       },
@@ -250,16 +254,16 @@ class CameraScreenV3 extends HookConsumerWidget {
                                   if (isVideoStatus &&
                                       controller
                                           .value!.value.isRecordingVideo) {
-                                    print('videoStop');
                                     await videoStop();
                                   } else {
-                                    print('videoRecorder');
                                     await videoRecorder();
                                   }
                                 } on CameraException catch (e) {
                                   print(e);
-                                  ref.read(videoStatusProvider.notifier).state =
-                                      false;
+                                  ref
+                                      .read(
+                                          videoModeNotifierProvider.notifier)
+                                      .stop();
                                 }
                               },
                         isPerform: cameraLoaded.value && !isTakingPicture.value,
