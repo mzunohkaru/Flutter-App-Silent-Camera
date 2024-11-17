@@ -1,5 +1,8 @@
 build_runner:
-	fvm flutter pub run build_runner build -d
+	flutter pub run build_runner build -d
 
 format:
-	fvm flutter format lib/
+	flutter format lib/
+
+app_logo:
+	flutter pub run flutter_launcher_icons:main
