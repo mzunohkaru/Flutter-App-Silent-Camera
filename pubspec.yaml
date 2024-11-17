@@ -53,7 +53,7 @@ flutter_icons:
   ios: true
   image_path: "assets/logo.png"
   remove_alpha_ios: true
-  android: true
+  android: false
 
 flutter:
   uses-material-design: true

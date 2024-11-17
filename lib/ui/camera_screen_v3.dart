@@ -160,7 +160,6 @@ class CameraScreenV3 extends HookConsumerWidget {
           isTakingPicture.value = true;
           progress.value = 30;
           final file = await controller.value!.stopVideoRecording();
-          if (file == null) return;
           progress.value = 90;
           await ImageGallerySaver.saveFile(file.path);
           progress.value = 100;
