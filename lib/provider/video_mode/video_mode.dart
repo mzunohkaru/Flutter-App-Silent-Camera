@@ -5,7 +5,7 @@ part 'video_mode.g.dart';
 class VideoModeNotifier extends _$VideoModeNotifier {
   @override
   bool build() {
-    return true;
+    return false;
   }
 
   void play() {

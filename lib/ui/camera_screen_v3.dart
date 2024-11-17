@@ -45,7 +45,7 @@ class CameraScreenV3 extends HookConsumerWidget {
         try {
           final cameraController = CameraController(
             camera,
-            ResolutionPreset.ultraHigh,
+            ResolutionPreset.high,
           );
 
           controller.value = cameraController;
@@ -156,16 +156,38 @@ class CameraScreenV3 extends HookConsumerWidget {
 
     final videoStop = useCallback(
       () async {
-        await controller.value!.stopVideoRecording().then((XFile? file) async {
-          if (file != null) {
-            print('Video recorded to ${file.path}');
-            await ImageGallerySaver.saveFile(file.path);
-            ref.read(videoModeNotifierProvider.notifier).stop();
-          }
-        });
+        try {
+          isTakingPicture.value = true;
+          progress.value = 30;
+          final file = await controller.value!.stopVideoRecording();
+          if (file == null) return;
+          progress.value = 90;
+          await ImageGallerySaver.saveFile(file.path);
+          progress.value = 100;
+        } catch (e) {
+          print(e);
+        } finally {
+          ref.read(videoModeNotifierProvider.notifier).stop();
+          progress.value = 0;
+          isTakingPicture.value = false;
+        }
       },
       [],
     );
+
+    useEffect(() {
+      if (!isCameraMode) {
+        // ビデオモードに切り替わった時のみ初期化
+        controller.value?.prepareForVideoRecording();
+      }
+      return () async {
+        if (!isCameraMode && controller.value!.value.isRecordingVideo) {
+          await videoStop();
+        }
+      };
+    }, [
+      isCameraMode,
+    ]);
 
     useEffect(
       () {
@@ -245,7 +267,6 @@ class CameraScreenV3 extends HookConsumerWidget {
                         onTap: isCameraMode
                             ? takePicture
                             : () async {
-                                print(isVideoStatus);
                                 if (controller.value == null) {
                                   return;
                                 }
@@ -261,8 +282,7 @@ class CameraScreenV3 extends HookConsumerWidget {
                                 } on CameraException catch (e) {
                                   print(e);
                                   ref
-                                      .read(
-                                          videoModeNotifierProvider.notifier)
+                                      .read(videoModeNotifierProvider.notifier)
                                       .stop();
                                 }
                               },
