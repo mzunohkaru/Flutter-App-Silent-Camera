@@ -6,7 +6,7 @@ part of 'video_mode.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$videoModeNotifierHash() => r'11d22bb4ca85a68b2cb6706cd0638ba7cbe5f7b8';
+String _$videoModeNotifierHash() => r'e5d02140d40a43f9925b795e6a8a514da6365c2f';
 
 /// See also [VideoModeNotifier].
 @ProviderFor(VideoModeNotifier)
