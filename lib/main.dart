@@ -8,9 +8,9 @@ import 'app.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await SystemChrome.setPreferredOrientations(
-    [DeviceOrientation.portraitDown, DeviceOrientation.portraitUp],
-  );
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+  ]);
 
   runApp(const ProviderScope(child: App()));
 }
